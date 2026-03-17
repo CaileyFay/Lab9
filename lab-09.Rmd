@@ -1,7 +1,7 @@
 ---
 title: "Lab 09: Algorithmic Bias"
-author: "Insert your name here"
-date: "Insert date here"
+author: "Cailey Fay"
+date: "3.17.26"
 output: github_document
 ---
 
@@ -12,6 +12,8 @@ First, let's load the necessary packages:
 ```{r load-packages, message = FALSE}
 library(tidyverse)
 library(fairness)
+library(readr)
+library(janitor)
 ```
 
 ### The data
@@ -19,10 +21,198 @@ library(fairness)
 For this lab, we'll use the COMPAS dataset compiled by ProPublica. The data has been preprocessed and cleaned for you. You'll have to load it yourself. The dataset is available in the `data` folder, but I've changed the file name from `compas-scores-two-years.csv` to `compas-scores-2-years.csv`. I've done this help you practice debugging code when you encounter an error.
 
 ```{r}
-compas <- read_csv("data/compas-scores-two-years.csv")
+compas <- read_csv("data/compas-scores-2-years.csv") %>%
+  clean_names() %>%
+  rename(
+    decile_score = decile_score_12,
+    priors_count = priors_count_15)
+
+glimpse(compas)
 ```
 
+## Exercise 1 
+There are `r nrow` rows and `r ncol` columns of the frame. Each row represents a person. 
 
-## Additional Exercises  
+## Exercise 2 
+There are `r count(distinct(compas, name))` unique people in the frame. This is not the same as the total number of observations, perhaps because some repeat offenders get listed twice. 
 
-Almost there! Keep building on your work and follow the same structure for any remaining exercises. Each exercise builds on the last, so take your time and make sure your code is working as expected.  
+## Exercise 3
+The distribution is quite flat, but concentrated at the lower scores. 
+```{r}
+hist(compas$decile_score)
+```
+## Exercise 4
+
+```{r}
+ggplot(compas, mapping = aes(x=fct_infreq(race), fill = race)) +
+  geom_bar() +
+ # coord_polar(theta = "y") +
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  labs(title = "Distribution of Race",
+       y= "Frequency",
+       x = "Race") +
+  scale_fill_brewer()
+
+ggplot(compas, mapping = aes(x=sex, fill = sex)) +
+  geom_bar() +
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  labs(title = "Defendant Sex",
+       y= "Frequency",
+       x = "Sex") +
+  scale_fill_brewer()
+
+ggplot(compas, mapping = aes(x=age_cat, fill = age_cat)) +
+  geom_bar() +
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  labs(title = "Defendant Age",
+       y= "Frequency",
+       x = "Age Category") +
+  scale_fill_brewer()
+```
+## Excercise 4 Stretch
+Work on this more later - I think the trick is to make a frame that has a column for the different demo types so you can facet by that variable 
+```{r}
+ggplot(compas, mapping = aes(x=age_cat, fill = age_cat)) +
+  geom_bar() +
+  theme_minimal() + 
+  theme(legend.position = "none") +
+  labs(title = "Defendant Age",
+       y= "Frequency",
+       x = "Age Category") +
+  scale_fill_brewer() +
+  facet_grid(~race, age_cat, race)
+
+```
+
+## Exercise 5
+They do correspond with actual recidivism, but not remarkably so. This chart isn't amazing but it gets my point across. 0 = no reoffense, 1 = reoffense. 
+```{r}
+
+ggplot(compas, mapping = aes(x = nom_decile_score, fill = as.factor(two_year_recid))) +
+  geom_bar(position = "fill") +
+  scale_fill_brewer() +
+  theme_minimal() + 
+  labs(title = "Proportion of Actual Recidivism by Risk Class",
+                    x = "Risk Decile",
+                    y = "Proportion of Recidivism (or Lackthereof)",
+          fill = "Recidivism")
+
+#I am going to use regression to see if the algorithm significantly predicts recidivism. It does, but it only explains 12% of the variance in recidivism.  
+reg <- lm(two_year_recid ~ decile_score, compas)
+summary(reg)
+```
+
+## Exercise 6 & 7 
+Overall, the algorithm was right 4,670 times out of 7,214, which is 64% accurate. 
+
+```{r}
+compas <- compas %>%
+  mutate(compas_correct_or_not = case_when(
+    decile_score >= 7 & two_year_recid == 1 ~ 1, #True positive
+    decile_score < 7 & two_year_recid == 0 ~ 1, #True negative
+    decile_score >=7 & two_year_recid == 0 ~ 0, #False positive
+    decile_score < 7 & two_year_recid == 1 ~ 0)) #False negative 
+
+compas <- compas %>%
+  mutate(compas_class = as.factor(case_when(
+    decile_score >= 7 & two_year_recid == 1 ~ "TP", #True positive
+    decile_score <=4 & two_year_recid == 0 ~ "TN", #True negative
+    decile_score >=7 & two_year_recid == 0 ~ "FP", #False positive
+    decile_score <= 4 & two_year_recid == 1 ~ "FN",
+    decile_score <4 & decile_score < 7 ~ "Mid"))) #False negative 
+
+table(compas$compas_class)
+table(compas$compas_correct_or_not)
+
+#these are ugly, just for my own understanding
+ggplot(compas, aes(x=compas_class)) +
+  geom_bar()
+
+ggplot(compas, aes(x=compas_correct_or_not, fill = compas_class)) +
+  geom_bar(position = "fill")
+```
+
+Additional Exercises  
+Now let’s assess how well the COMPAS algorithm performs across different demographic groups. Like ProPublica, we’ll focus on race, but you can explore others.
+
+## Exercise 8 
+Black defendants are more frequently assigned as high risk, whereas white defandants tend to have lower risk scores. 
+```{r}
+compas %>%
+  filter(race == "African-American" | race == "Caucasian") %>%
+ggplot(aes(x=nom_decile_score)) +
+  geom_bar() +
+  facet_wrap(~race) +
+  labs(title = "Distribution of Risk Decile Scores by Race",
+       x="Decile Score",
+       y = "Frequency")
+
+```
+
+## Exercise 9 
+ 38.5% of black defendants are high risk versus 16.5% of white defendants. This is a large dispairity. 
+```{r}
+Bcompas <- compas %>%
+  filter(race == "African-American")
+
+Wcompas <- compas %>%
+  filter(race == "Caucasian")
+
+table(Bcompas$decile_score)
+table(Wcompas$decile_score)
+```
+
+## Exercise 10 
+The algorithm tends to incorrectly assign white defendants as low risk and black defendants as high risk. 
+
+The proportion of non-recidivists who had false positives is much higher for black defendants. 
+```{r}
+#25% false positives for black defendants 
+Bnon_recidivists <- Bcompas %>%
+  filter(two_year_recid == 0)
+table(Bnon_recidivists$compas_class)
+
+#9% false positives for white defendants 
+Wnon_recidivists <- Wcompas %>%
+  filter(two_year_recid == 0)
+table(Wnon_recidivists$compas_class)
+```
+
+The proportion of recidivists who had false negatives was much higher for white defendants.  
+```{r}
+#30% false negatives for black defendants 
+Brecidivists <- Bcompas %>%
+  filter(two_year_recid == 1)
+table(Brecidivists$compas_class)
+
+#48% false negatives for white defendants 
+Wrecidivists <- Wcompas %>%
+  filter(two_year_recid == 1)
+table(Wrecidivists$compas_class)
+```
+
+## Exercise 11 
+False positives were twice as common for the black defendants versus white. (Black defendant FP is 12%
+White defendant FP is 6%)
+
+The figure 
+```{r}
+table(Bcompas$compas_class)
+table(Wcompas$compas_class)
+
+compas %>%
+    filter(race == "African-American" | race == "Caucasian") %>%
+ggplot(aes(x=race, fill = compas_class)) +
+  geom_bar(position = "fill") +
+  scale_fill_manual(values = c("FP" = "red","FN" = "orange", "TP" = "grey", "TN" = "grey", "NA" = "grey")) +
+  theme_minimal() +
+  labs(title = "Proportion of Risk Classifications Among Black and White Defendants",
+       x = "Race",
+       y = "Frequency",
+       fill = "Risk Class")
+
+```
+
