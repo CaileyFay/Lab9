@@ -197,8 +197,6 @@ table(Wrecidivists$compas_class)
 ## Exercise 11 
 False positives were twice as common for the black defendants versus white. (Black defendant FP is 12%
 White defendant FP is 6%)
-
-The figure 
 ```{r}
 table(Bcompas$compas_class)
 table(Wcompas$compas_class)
@@ -213,6 +211,69 @@ ggplot(aes(x=race, fill = compas_class)) +
        x = "Race",
        y = "Frequency",
        fill = "Risk Class")
+```
+## Exercise 12 
+
+The algorithm weighs prior convictions more heavily for black defendants. The colors won't play nice in my graph, so thats why its faceted instead. 
+```{r}
+compas %>%
+    filter(race == "African-American" | race == "Caucasian") %>%
+ggplot(aes(x=decile_score, y=priors_count)) +
+  geom_jitter(alpha = 0.7) + 
+ # scale_color_manual(values = c("African-American" = "blue", "Caucasion"="midnightblue")) +
+  facet_wrap(~race) +
+  theme(legend.position = "none") +
+  theme_minimal() +
+  labs(title = "Association of Prior Convictions and Risk Scores, by Race",
+       x = "Risk Score",
+       y = "Prior Convictions")
+#I can't get the colors to play nice 
+```
+## Exercise 13
+
+I don't think the algorithm is fair. If it were, the false positive and false negative ratings would be more similar across races. It is quite alarming that the algorithm is more likely to incorrectly conclude that a white person isn't going to re offend or that a black person will. I would be interested in seeing what these rates are for the other races in the dataset. 
+
+My visualization of the calibration actually makes it seem like maybe the algorithm is more fair than I originally thought. This chart is in line with Northpointe's claim. Similar proportions of defendants at each decile reoffended. However, white people are more likely to be given a lower risk score, so my chart was probably biased from the beginning. The classification system is biased, so I am personally not sure what to think. 
+
+```{r}
+# To check calibration, you can calculate recidivism rates by score for each race
+df<- compas %>%
+  filter(race == "African-American" | race == "Caucasian") %>%
+  group_by(nom_decile_score, race) %>%
+  summarize(reoffense_rate = mean(two_year_recid, na.rm = TRUE), .groups = "drop")
+
+#not adjusted for the size of each group 
+compas %>%
+  filter(race == "African-American" | race == "Caucasian") %>%
+ggplot(aes(x=nom_decile_score, y = two_year_recid)) +
+  geom_col() +
+  facet_wrap(~race) +
+  labs(title = "Risk Decile Scores and Frequency of Reoffense",
+       x="Decile Score",
+       y = "# Reoffenders")
+
+#Using proportions of reoffense at each decile 
+ggplot(df, mapping = aes(x=nom_decile_score, y=reoffense_rate)) +
+  geom_col() +
+  facet_wrap(~race) +
+  labs(title = "Risk Decile Scores and Proportions of Reoffense",
+       x="Decile Score",
+       y = "Proportion of Reoffenders")
 
 ```
+## Exercise 14, 15, & 16 (My answers are all intertwined)
+If you were tasked with creating a fairer risk assessment algorithm, what changes would you make to address the disparities you’ve observed?
+- I would want to 
+- I don't think its possible to create a fair algorithm, because the data feeding the algorithm is based off of an unjust system. 
+-a fair algorithm might be objective, but it can still be at the mercy of human interpretation, which is inherently biased. Prior offenses are part of the algorithm, but black people are more likely to be unfairly charged for crimes. The justice system that creates the data is unfair, so the algorithm can be as "fair" on paper as we want, but the stuff that is feeding it is not fair. 
+
+## Exercise 15 
+Different definitions of fairness can sometimes be mathematically incompatible with each other. What trade-offs might be involved in designing a “fair” algorithm for criminal risk assessment?
+-there are structural inequalities that might cause some of the dispairty - i.e. lower SES = worse school funding / community resources which might in turn increase risk of deliquency among youth - I am trying to politely say that adjusting the math so that it treats races exactly the same might not reflect reality, because our world is also unfair and stacks the deck against people who aren't white upper class men. 
+-I think the algorithm needs to be optimized to do the best job making predictions within each race, and whatever those numbers are they are. whatever makes the best predictions = fair 
+
+## Exercise 16 
+Beyond technical solutions, what policy changes might be needed to ensure that algorithmic risk assessments are used fairly in the criminal justice system?
+
+
 
