@@ -31,7 +31,7 @@ glimpse(compas)
 ```
 
 ## Exercise 1 
-There are `r nrow` rows and `r ncol` columns of the frame. Each row represents a person. 
+There are `r nrow(compas)` rows and `r ncol(compas)` columns of the frame. Each row represents a person. 
 
 ## Exercise 2 
 There are `r count(distinct(compas, name))` unique people in the frame. This is not the same as the total number of observations, perhaps because some repeat offenders get listed twice. 
@@ -72,9 +72,10 @@ ggplot(compas, mapping = aes(x=age_cat, fill = age_cat)) +
        x = "Age Category") +
   scale_fill_brewer()
 ```
+
 ## Excercise 4 Stretch
-Work on this more later - I think the trick is to make a frame that has a column for the different demo types so you can facet by that variable 
-```{r}
+I might revisit this, but right now I want to invest my time elsewhere. 
+```{#r}
 ggplot(compas, mapping = aes(x=age_cat, fill = age_cat)) +
   geom_bar() +
   theme_minimal() + 
@@ -90,6 +91,9 @@ ggplot(compas, mapping = aes(x=age_cat, fill = age_cat)) +
 ## Exercise 5
 They do correspond with actual recidivism, but not remarkably so. This chart isn't amazing but it gets my point across. 0 = no reoffense, 1 = reoffense. 
 ```{r}
+compas <- compas %>%
+  mutate(nom_decile_score = as.factor(decile_score))
+
 
 ggplot(compas, mapping = aes(x = nom_decile_score, fill = as.factor(two_year_recid))) +
   geom_bar(position = "fill") +
@@ -106,6 +110,7 @@ summary(reg)
 ```
 
 ## Exercise 6 & 7 
+
 Overall, the algorithm was right 4,670 times out of 7,214, which is 64% accurate. 
 
 ```{r}
@@ -233,7 +238,7 @@ ggplot(aes(x=decile_score, y=priors_count)) +
 
 I don't think the algorithm is fair. If it were, the false positive and false negative ratings would be more similar across races. It is quite alarming that the algorithm is more likely to incorrectly conclude that a white person isn't going to re offend or that a black person will. I would be interested in seeing what these rates are for the other races in the dataset. 
 
-My visualization of the calibration actually makes it seem like maybe the algorithm is more fair than I originally thought. This chart is in line with Northpointe's claim. Similar proportions of defendants at each decile reoffended. However, white people are more likely to be given a lower risk score, so my chart was probably biased from the beginning. The classification system is biased, so I am personally not sure what to think. 
+My visualization of the calibration actually makes it seem like maybe the algorithm is more fair than I originally thought (the second one, not the first). This chart is in line with Northpointe's claim. Similar proportions of defendants at each decile reoffended. However, white people are more likely to be given a lower risk score, so my chart was probably biased from the beginning. The classification system is biased, so I am personally not sure what to think. 
 
 ```{r}
 # To check calibration, you can calculate recidivism rates by score for each race
@@ -261,19 +266,20 @@ ggplot(df, mapping = aes(x=nom_decile_score, y=reoffense_rate)) +
        y = "Proportion of Reoffenders")
 
 ```
-## Exercise 14, 15, & 16 (My answers are all intertwined)
-If you were tasked with creating a fairer risk assessment algorithm, what changes would you make to address the disparities you’ve observed?
-- I would want to 
-- I don't think its possible to create a fair algorithm, because the data feeding the algorithm is based off of an unjust system. 
--a fair algorithm might be objective, but it can still be at the mercy of human interpretation, which is inherently biased. Prior offenses are part of the algorithm, but black people are more likely to be unfairly charged for crimes. The justice system that creates the data is unfair, so the algorithm can be as "fair" on paper as we want, but the stuff that is feeding it is not fair. 
+
+## Exercise 14  
+
+I think the focus should be on optimizing the predictive power of the algorithm for each race. I think fair = accurate predictions, and given how much inequality exists in the justice system, I think its possible that one combination of factors might do a good job predicting for one race, while another combination might be best for another. That said, I don't think its possible to create a fair algorithm, because the data feeding the algorithm is based off of an unjust system. For example, prior offenses are part of the algorithm, but black people are more likely to be unfairly charged for crimes. The justice system underlying the data is unfair, so the algorithm can be as "fair" on paper as we want, but it is based on biased information.
+
+I do think its important to adjust the algorithm so that it is not more or less likely that there is a false positive / false negative based on race - the fact that white people are more likely to get false negatives, and black people false positives, is terrible. 
 
 ## Exercise 15 
-Different definitions of fairness can sometimes be mathematically incompatible with each other. What trade-offs might be involved in designing a “fair” algorithm for criminal risk assessment?
--there are structural inequalities that might cause some of the dispairty - i.e. lower SES = worse school funding / community resources which might in turn increase risk of deliquency among youth - I am trying to politely say that adjusting the math so that it treats races exactly the same might not reflect reality, because our world is also unfair and stacks the deck against people who aren't white upper class men. 
--I think the algorithm needs to be optimized to do the best job making predictions within each race, and whatever those numbers are they are. whatever makes the best predictions = fair 
+
+On the one hand, a fair algorithm might be one that assigns risk based on exactly the same information, and weights this information in the same manner (e.g. prior offenses being weighted the same across races). On the other, a fair algorithm can also be thought of as one that make the most accurate predictions, and this could involve using different combinations of predictors / weighting to accomplish this end. 
 
 ## Exercise 16 
-Beyond technical solutions, what policy changes might be needed to ensure that algorithmic risk assessments are used fairly in the criminal justice system?
+
+The justice system needs to be more fair overall, that way the data the algorithm uses is less biased. I also think that the algorithm should not be interpreted as the "be all end all." There should be multiple other things to consider about the person to make a determination about risk - e.g. face to face interviews, mental health evaluations - to get a more comprehensive understanding of the defendant.  
 
 
 
